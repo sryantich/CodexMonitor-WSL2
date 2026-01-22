@@ -73,23 +73,36 @@ impl WorkspaceSession {
 }
 
 pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
+    // Use platform-specific path separator
+    #[cfg(target_os = "windows")]
+    const PATH_SEPARATOR: char = ';';
+    #[cfg(not(target_os = "windows"))]
+    const PATH_SEPARATOR: char = ':';
+
     let mut paths: Vec<String> = env::var("PATH")
         .unwrap_or_default()
-        .split(':')
+        .split(PATH_SEPARATOR)
         .filter(|value| !value.is_empty())
         .map(|value| value.to_string())
         .collect();
-    let mut extras = vec![
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        "/usr/bin",
-        "/bin",
-        "/usr/sbin",
-        "/sbin",
-    ]
-    .into_iter()
-    .map(|value| value.to_string())
-    .collect::<Vec<String>>();
+
+    let mut extras: Vec<String> = Vec::new();
+
+    // Add Unix-specific paths (macOS, Linux, WSL)
+    #[cfg(not(target_os = "windows"))]
+    {
+        extras.extend(vec![
+            "/opt/homebrew/bin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/bin".to_string(),
+            "/bin".to_string(),
+            "/usr/sbin".to_string(),
+            "/sbin".to_string(),
+        ]);
+    }
+
+    // Add home directory paths for Unix
+    #[cfg(not(target_os = "windows"))]
     if let Ok(home) = env::var("HOME") {
         extras.push(format!("{home}/.local/bin"));
         extras.push(format!("{home}/.local/share/mise/shims"));
@@ -105,6 +118,26 @@ pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
             }
         }
     }
+
+    // Add home directory paths for Windows
+    #[cfg(target_os = "windows")]
+    if let Ok(userprofile) = env::var("USERPROFILE") {
+        extras.push(format!("{userprofile}\\.cargo\\bin"));
+        extras.push(format!("{userprofile}\\.bun\\bin"));
+        extras.push(format!("{userprofile}\\AppData\\Local\\Programs\\nodejs"));
+        extras.push(format!("{userprofile}\\AppData\\Roaming\\npm"));
+        // Check for nvm-windows node installations
+        let nvm_root = Path::new(&userprofile).join("AppData\\Roaming\\nvm");
+        if let Ok(entries) = std::fs::read_dir(&nvm_root) {
+            for entry in entries.flatten() {
+                let node_path = entry.path();
+                if node_path.is_dir() {
+                    extras.push(node_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
     if let Some(bin_path) = codex_bin.filter(|value| !value.trim().is_empty()) {
         let parent = Path::new(bin_path).parent();
         if let Some(parent) = parent {
@@ -119,7 +152,7 @@ pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
     if paths.is_empty() {
         None
     } else {
-        Some(paths.join(":"))
+        Some(paths.join(&PATH_SEPARATOR.to_string()))
     }
 }
 
