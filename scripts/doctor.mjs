@@ -27,7 +27,7 @@ if (missing.length === 0) {
     console.log(`Optional dependencies not found: ${warnings.join(", ")}`);
     if (warnings.some(w => w.includes("codex"))) {
       console.log("Note: The Codex CLI must be installed for the app to function.");
-      console.log("Install from: https://github.com/openai/codex");
+      console.log("Ensure 'codex' is available in your PATH.");
     }
   } else {
     console.log("Doctor: OK");

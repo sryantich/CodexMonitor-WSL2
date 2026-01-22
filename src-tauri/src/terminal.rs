@@ -30,7 +30,7 @@ fn terminal_key(workspace_id: &str, terminal_id: &str) -> String {
 fn shell_path() -> String {
     #[cfg(target_os = "windows")]
     {
-        // On Windows, prefer PowerShell, then fall back to cmd.exe
+        // On Windows, use the system shell (cmd.exe) via COMSPEC
         std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
     }
     #[cfg(not(target_os = "windows"))]
