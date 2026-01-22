@@ -82,10 +82,26 @@ npm run tauri build
 
 The macOS app bundle will be in `src-tauri/target/release/bundle/macos/`.
 
-### Windows (opt-in)
+### Windows 11 Build
 
-Windows builds are opt-in and use a separate Tauri config file to avoid macOS-only window effects.
+Windows builds use a separate Tauri config file that disables macOS-only window effects.
 
+#### Prerequisites for Windows
+
+1. **Visual Studio Build Tools** with C++ workload
+2. **Rust toolchain** - Install from [rustup.rs](https://rustup.rs)
+3. **Node.js** - LTS version recommended
+4. **CMake** - Install via `choco install cmake` or from [cmake.org](https://cmake.org/download/)
+5. **Codex CLI** - Install the OpenAI Codex CLI and ensure it's in your PATH
+
+#### Build Commands
+
+Development mode:
+```bash
+npm run tauri:dev:win
+```
+
+Production build:
 ```bash
 npm run tauri:build:win
 ```
@@ -95,7 +111,15 @@ Artifacts will be in:
 - `src-tauri/target/release/bundle/nsis/` (installer exe)
 - `src-tauri/target/release/bundle/msi/` (msi)
 
-Note: dictation is currently disabled on Windows builds (to avoid requiring LLVM/libclang for `whisper-rs`/bindgen).
+Note: Dictation is currently disabled on Windows builds (to avoid requiring LLVM/libclang for `whisper-rs`/bindgen).
+
+### WSL2 Considerations
+
+If you want to run CodexMonitor inside WSL2 with a Windows X server or WSLg:
+
+1. Install the Linux dependencies for Tauri (see [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/))
+2. Use the Linux build commands (`npm run tauri dev` / `npm run tauri build`)
+3. For WSLg, the app should work out of the box with the default configuration
 
 ## Type Checking
 

@@ -12,8 +12,26 @@ function hasCommand(command) {
 const missing = [];
 if (!hasCommand("cmake")) missing.push("cmake");
 
+// Check for optional dependencies
+const warnings = [];
+if (!hasCommand("codex")) {
+  warnings.push("codex (Codex CLI - required at runtime)");
+}
+if (!hasCommand("git")) {
+  warnings.push("git (required for git features)");
+}
+
 if (missing.length === 0) {
-  console.log("Doctor: OK");
+  if (warnings.length > 0) {
+    console.log("Doctor: OK (with warnings)");
+    console.log(`Optional dependencies not found: ${warnings.join(", ")}`);
+    if (warnings.some(w => w.includes("codex"))) {
+      console.log("Note: The Codex CLI must be installed for the app to function.");
+      console.log("Ensure 'codex' is available in your PATH.");
+    }
+  } else {
+    console.log("Doctor: OK");
+  }
   process.exit(0);
 }
 
@@ -31,6 +49,10 @@ switch (process.platform) {
   case "win32":
     console.log("Install: choco install cmake");
     console.log("Or download from: https://cmake.org/download/");
+    console.log("");
+    console.log("For Windows builds, you also need:");
+    console.log("  - Visual Studio Build Tools with C++ workload");
+    console.log("  - Rust toolchain (rustup.rs)");
     break;
   default:
     console.log("Install CMake from: https://cmake.org/download/");

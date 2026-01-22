@@ -28,7 +28,15 @@ fn terminal_key(workspace_id: &str, terminal_id: &str) -> String {
 }
 
 fn shell_path() -> String {
-    std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use the system shell (cmd.exe) via COMSPEC
+        std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+    }
 }
 
 fn spawn_terminal_reader(
@@ -104,6 +112,8 @@ pub(crate) async fn terminal_open(
 
     let mut cmd = CommandBuilder::new(shell_path());
     cmd.cwd(cwd);
+    // On Unix, use -i for interactive shell; on Windows, cmd.exe doesn't need it
+    #[cfg(not(target_os = "windows"))]
     cmd.arg("-i");
     cmd.env("TERM", "xterm-256color");
 

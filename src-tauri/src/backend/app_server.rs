@@ -73,42 +73,69 @@ impl WorkspaceSession {
 }
 
 pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
-    let mut paths: Vec<String> = env::var("PATH")
-        .unwrap_or_default()
-        .split(':')
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_string())
-        .collect();
-    let mut extras = vec![
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-        "/usr/bin",
-        "/bin",
-        "/usr/sbin",
-        "/sbin",
-    ]
-    .into_iter()
-    .map(|value| value.to_string())
-    .collect::<Vec<String>>();
+    // Use std::env::split_paths for cross-platform PATH parsing
+    let mut paths: Vec<std::path::PathBuf> = env::var_os("PATH")
+        .map(|p| env::split_paths(&p).collect())
+        .unwrap_or_default();
+
+    let mut extras: Vec<std::path::PathBuf> = Vec::new();
+
+    // Add Unix-specific paths (macOS, Linux, WSL)
+    #[cfg(not(target_os = "windows"))]
+    {
+        extras.extend(vec![
+            std::path::PathBuf::from("/opt/homebrew/bin"),
+            std::path::PathBuf::from("/usr/local/bin"),
+            std::path::PathBuf::from("/usr/bin"),
+            std::path::PathBuf::from("/bin"),
+            std::path::PathBuf::from("/usr/sbin"),
+            std::path::PathBuf::from("/sbin"),
+        ]);
+    }
+
+    // Add home directory paths for Unix
+    #[cfg(not(target_os = "windows"))]
     if let Ok(home) = env::var("HOME") {
-        extras.push(format!("{home}/.local/bin"));
-        extras.push(format!("{home}/.local/share/mise/shims"));
-        extras.push(format!("{home}/.cargo/bin"));
-        extras.push(format!("{home}/.bun/bin"));
-        let nvm_root = Path::new(&home).join(".nvm/versions/node");
+        let home_path = std::path::PathBuf::from(&home);
+        extras.push(home_path.join(".local/bin"));
+        extras.push(home_path.join(".local/share/mise/shims"));
+        extras.push(home_path.join(".cargo/bin"));
+        extras.push(home_path.join(".bun/bin"));
+        let nvm_root = home_path.join(".nvm/versions/node");
         if let Ok(entries) = std::fs::read_dir(nvm_root) {
             for entry in entries.flatten() {
                 let bin_path = entry.path().join("bin");
                 if bin_path.is_dir() {
-                    extras.push(bin_path.to_string_lossy().to_string());
+                    extras.push(bin_path);
                 }
             }
         }
     }
+
+    // Add home directory paths for Windows
+    #[cfg(target_os = "windows")]
+    if let Ok(userprofile) = env::var("USERPROFILE") {
+        let profile_path = std::path::PathBuf::from(&userprofile);
+        extras.push(profile_path.join(".cargo\\bin"));
+        extras.push(profile_path.join(".bun\\bin"));
+        extras.push(profile_path.join("AppData\\Local\\Programs\\nodejs"));
+        extras.push(profile_path.join("AppData\\Roaming\\npm"));
+        // Check for nvm-windows node installations
+        let nvm_root = profile_path.join("AppData\\Roaming\\nvm");
+        if let Ok(entries) = std::fs::read_dir(&nvm_root) {
+            for entry in entries.flatten() {
+                let node_path = entry.path();
+                if node_path.is_dir() {
+                    extras.push(node_path);
+                }
+            }
+        }
+    }
+
     if let Some(bin_path) = codex_bin.filter(|value| !value.trim().is_empty()) {
         let parent = Path::new(bin_path).parent();
         if let Some(parent) = parent {
-            extras.push(parent.to_string_lossy().to_string());
+            extras.push(parent.to_path_buf());
         }
     }
     for extra in extras {
@@ -119,7 +146,8 @@ pub(crate) fn build_codex_path_env(codex_bin: Option<&str>) -> Option<String> {
     if paths.is_empty() {
         None
     } else {
-        Some(paths.join(":"))
+        // Use std::env::join_paths for cross-platform PATH joining
+        env::join_paths(paths).ok().map(|os_str| os_str.to_string_lossy().to_string())
     }
 }
 
